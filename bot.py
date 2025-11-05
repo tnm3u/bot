@@ -3,14 +3,13 @@ from datetime import datetime, timedelta
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler, CallbackQueryHandler, filters
 
-# Bot token & admin ID taken from Render environment variables
+# Get variables from hosting environment
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_CHAT_ID = int(os.getenv("ADMIN_CHAT_ID", "0"))
 
-# Keep track of reply targets
+# Memory storage for admin reply mapping
 reply_targets = {}
-
-REPLY_TIMEOUT = 10  # minutes
+REPLY_TIMEOUT = 10  # in minutes
 
 
 def get_name(user):
@@ -21,13 +20,15 @@ def get_name(user):
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Start command - respond differently for admin/user"""
     if update.effective_user.id == ADMIN_CHAT_ID:
-        await update.message.reply_text("✅ Bot is running on Render!\nYou're the admin.")
+        await update.message.reply_text("✅ Bot is running!\nYou're the admin.")
     else:
         await update.message.reply_text("Hello! Send your message and the admin will reply.")
 
 
 async def forward_to_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Forward every user message to admin with Reply button"""
     if update.effective_chat.id == ADMIN_CHAT_ID:
         return
 
@@ -49,6 +50,7 @@ async def forward_to_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def handle_reply_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Activate reply mode for clicking button"""
     query = update.callback_query
     await query.answer()
 
@@ -59,12 +61,13 @@ async def handle_reply_button(update: Update, context: ContextTypes.DEFAULT_TYPE
     )
 
     await query.edit_message_text(
-        f"✅ Reply mode activated for User ID `{user_id}` (valid {REPLY_TIMEOUT} mins)",
+        f"✅ Reply mode ON for User `{user_id}` (valid {REPLY_TIMEOUT} mins)",
         parse_mode="Markdown"
     )
 
 
 async def admin_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Send admin's message back to the user if reply mode is active"""
     if update.effective_chat.id != ADMIN_CHAT_ID:
         return
 
@@ -93,10 +96,9 @@ def main():
     app.add_handler(MessageHandler(~filters.Chat(ADMIN_CHAT_ID), forward_to_admin))
     app.add_handler(MessageHandler(filters.Chat(ADMIN_CHAT_ID), admin_reply))
 
-    print("✅ Bot is running on Render...")
-    app.run_polling()
+    print("✅ Bot is running...")
+    app.run_polling(allowed_updates=Update.ALL_TYPES)
 
 
 if __name__ == "__main__":
     main()
-      
